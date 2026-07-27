@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request, send_file
+from flask_cors import CORS
 from PIL import Image
 from werkzeug.utils import secure_filename
 
@@ -37,6 +38,7 @@ def _refresh_windows_path():
 _refresh_windows_path()
 
 app = Flask(__name__)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "uploads"
