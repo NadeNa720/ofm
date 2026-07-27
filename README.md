@@ -71,10 +71,27 @@ python app.py
 
 Откройте в браузере: http://localhost:5000
 
+## Деплой на Railway
+
+Проект уже адаптирован для Railway:
+
+1. Подключите репозиторий GitHub `NadeNa720/ofm` в Railway.
+2. Railway автоматически установит Python, зависимости из `requirements.txt` и ExifTool через `nixpacks.toml`.
+3. Запуск будет выполнен через `Procfile` (gunicorn).
+4. Переменная окружения `PORT` задается Railway автоматически.
+
+Или разверните вручную через CLI:
+
+```bash
+railway login
+railway link
+railway up
+```
+
 ## Как это работает
 
-- Для изображений приложение записывает EXIF/XMP/IPTC-теги: `Make`, `Model`, `LensModel`, `Software`, `HostComputer`, `UserComment`, `GPSLatitude`, `GPSLongitude`, `GPSAltitude`, `City`, `State`, `Country`.
-- Для видео приложение записывает QuickTime/XMP-теги: `Make`, `Model`, `Software`, `Comment`, `UserComment`, `GPSLatitude`, `GPSLongitude`, `GPSAltitude`.
+- Для изображений приложение записывает EXIF-теги: `Make`, `Model`, `LensModel`, `Software`, `UserComment`, `GPSLatitude`, `GPSLongitude`, `GPSAltitude`, `ColorSpace`, `XResolution`, `YResolution`, `ResolutionUnit`.
+- Для видео приложение записывает QuickTime-теги: `Make`, `Model`, `Software`, `Comment`, `UserComment`, `GPSLatitude`, `GPSLongitude`, `GPSAltitude`.
 - ExifTool обновляет только метаданные контейнера, не трогая пиксели и видеопоток. Файл перезаписывается в папке `processed/`.
 
 ## Структура проекта
@@ -85,6 +102,9 @@ media-metadata-editor/
 ├── devices.py          # Пресеты устройств
 ├── geolocations.py     # База городов и координат
 ├── requirements.txt    # Зависимости Python
+├── Procfile            # Команда запуска для Railway
+├── nixpacks.toml       # Системные зависимости (ExifTool) для Railway
+├── runtime.txt         # Версия Python для Railway
 ├── run.bat             # Скрипт запуска для Windows
 ├── run.sh              # Скрипт запуска для Linux/macOS
 ├── templates/
