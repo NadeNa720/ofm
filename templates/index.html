@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Редактор метаданных медиа</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Редактор метаданных медиа</h1>
+            <p>Изменяйте устройство и IP-адрес в метаданных фото и видео без потери качества.</p>
+        </header>
+
+        <main>
+            <section class="upload-section" id="upload-section">
+                <div class="drop-zone" id="drop-zone">
+                    <input type="file" id="file-input" accept="image/*,video/*" hidden>
+                    <div class="drop-zone__content">
+                        <svg class="drop-zone__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        <p class="drop-zone__text">Перетащите файл сюда или нажмите для выбора</p>
+                        <p class="drop-zone__hint">Поддерживаются JPG, PNG, TIFF, HEIC, WEBP, MP4, MOV, AVI и другие</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="preview-section hidden" id="preview-section">
+                <div class="preview-card">
+                    <h2>Исходный файл</h2>
+                    <div class="preview-media" id="preview-media"></div>
+                    <div class="file-info" id="file-info"></div>
+                </div>
+            </section>
+
+            <section class="editor-section hidden" id="editor-section">
+                <div class="editor-card">
+                    <h2>Настройки метаданных</h2>
+
+                    <div class="form-group">
+                        <label for="device-select">Устройство</label>
+                        <select id="device-select" class="form-control">
+                            <option value="" disabled selected>Выберите устройство</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ip-address">IP-адрес</label>
+                        <input type="text" id="ip-address" class="form-control" placeholder="Например: 192.168.1.100">
+                    </div>
+
+                    <div class="form-group checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="preserve-dates" checked>
+                            <span>Сохранить исходные даты съемки</span>
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="location-select">Геолокация (город)</label>
+                        <select id="location-select" class="form-control">
+                            <option value="" selected>Без геолокации</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="manual-location-toggle">
+                            <span>Указать координаты вручную</span>
+                        </label>
+                    </div>
+
+                    <div class="manual-location hidden" id="manual-location">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="manual-lat">Широта</label>
+                                <input type="number" id="manual-lat" class="form-control" step="any" placeholder="40.7128">
+                            </div>
+                            <div class="form-group">
+                                <label for="manual-lon">Долгота</label>
+                                <input type="number" id="manual-lon" class="form-control" step="any" placeholder="-74.0060">
+                            </div>
+                            <div class="form-group">
+                                <label for="manual-alt">Высота, м</label>
+                                <input type="number" id="manual-alt" class="form-control" step="any" placeholder="10">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="manual-city">Название места</label>
+                            <input type="text" id="manual-city" class="form-control" placeholder="Например: New York">
+                        </div>
+                    </div>
+
+                    <div class="device-info hidden" id="device-info">
+                        <h3>Будут записаны следующие метаданные:</h3>
+                        <ul id="device-info-list"></ul>
+                    </div>
+
+                    <button class="btn btn-primary" id="process-btn" disabled>
+                        <span class="btn-text">Изменить метаданные</span>
+                        <span class="spinner hidden"></span>
+                    </button>
+                </div>
+            </section>
+
+            <section class="result-section hidden" id="result-section">
+                <div class="result-card">
+                    <h2>Готово</h2>
+                    <p>Метаданные успешно изменены. Качество файла не изменено.</p>
+                    <div class="result-actions">
+                        <a href="#" class="btn btn-success" id="download-btn" download>Скачать файл</a>
+                        <button class="btn btn-secondary" id="reset-btn">Обработать новый файл</button>
+                    </div>
+                    <div class="metadata-compare" id="metadata-compare"></div>
+                </div>
+            </section>
+
+            <section class="error-section hidden" id="error-section">
+                <div class="error-card">
+                    <h2>Ошибка</h2>
+                    <p id="error-message"></p>
+                    <button class="btn btn-secondary" id="error-reset-btn">Попробовать снова</button>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Lossless-редактирование метаданных через ExifTool. Видео и изображение не перекодируются.</p>
+        </footer>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
