@@ -73,11 +73,11 @@ python app.py
 
 ## Деплой на Railway
 
-Проект уже адаптирован для Railway:
+Проект уже адаптирован для Railway через **Dockerfile**:
 
 1. Подключите репозиторий GitHub `NadeNa720/ofm` в Railway.
-2. Railway автоматически установит Python, зависимости из `requirements.txt` и ExifTool через `nixpacks.toml`.
-3. Запуск будет выполнен через `Procfile` (gunicorn).
+2. Railway автоматически соберет Docker-образ, установит Python, зависимости из `requirements.txt` и ExifTool.
+3. Запуск будет выполнен через gunicorn внутри контейнера.
 4. Переменная окружения `PORT` задается Railway автоматически.
 
 Или разверните вручную через CLI:
@@ -102,6 +102,7 @@ media-metadata-editor/
 ├── devices.py          # Пресеты устройств
 ├── geolocations.py     # База городов и координат
 ├── requirements.txt    # Зависимости Python
+├── Dockerfile          # Docker-образ для Railway с ExifTool
 ├── Procfile            # Команда запуска для Railway
 ├── nixpacks.toml       # Системные зависимости (ExifTool) для Railway
 ├── runtime.txt         # Версия Python для Railway
