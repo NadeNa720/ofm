@@ -1,5 +1,6 @@
 import json
 import os
+import random
 import shutil
 import subprocess
 import sys
@@ -126,9 +127,9 @@ def apply_phone_look_video(src_path, dst_path):
     if not tool:
         raise RuntimeError("FFmpeg не найден. Установите FFmpeg и добавьте его в PATH.")
 
-    # Выход всегда в mp4 (типичный контейнер iPhone)
-    out_path = dst_path.with_suffix(".mp4")
-    temp_path = out_path.with_name(out_path.stem + "_tmp.mp4")
+    # Выход в MOV — типичный контейнер видео с iPhone
+    out_path = dst_path.with_suffix(".mov")
+    temp_path = out_path.with_name(out_path.stem + "_tmp.mov")
 
     # Фильтры: шум сенсора + лёгкая коррекция цвета/резкости как у мобильной камеры
     vf = (
@@ -203,6 +204,25 @@ def is_image(ext):
 
 def is_video(ext):
     return ext.lower() in VIDEO_EXTENSIONS
+
+
+def make_iphone_filename(ext, media_type="image"):
+    """Имя файла в стиле Camera Roll iPhone: IMG_1234.JPG / IMG_1234.MOV"""
+    number = random.randint(1, 9999)
+    ext = ext.lower().lstrip(".")
+    if media_type == "video" or is_video(ext):
+        if ext in {"mp4", "m4v"}:
+            return f"IMG_{number:04d}.MP4"
+        return f"IMG_{number:04d}.MOV"
+    if ext in {"heic", "heif"}:
+        return f"IMG_{number:04d}.HEIC"
+    if ext == "png":
+        return f"IMG_{number:04d}.PNG"
+    if ext in {"tif", "tiff"}:
+        return f"IMG_{number:04d}.TIFF"
+    if ext == "webp":
+        return f"IMG_{number:04d}.WEBP"
+    return f"IMG_{number:04d}.JPG"
 
 
 def _apply_gps_tags(tags, location, ext):
@@ -473,23 +493,21 @@ def process():
 
     upload_path = upload_files[0]
     ext = upload_path.suffix.lower().lstrip(".")
-    original_name = secure_filename(data.get("original_name", f"processed.{ext}"))
+    media_type = "video" if is_video(ext) else "image"
 
     try:
         if phone_look:
             if is_video(ext):
                 if not ffmpeg_ok():
                     return jsonify({"error": "FFmpeg не найден. Нужен для режима «как с телефона»."}), 500
-                intermediate = PROCESSED_DIR / f"{upload_id}_phone.mp4"
+                intermediate = PROCESSED_DIR / f"{upload_id}_phone.mov"
                 phone_path = apply_phone_look_video(upload_path, intermediate)
-                processed_name = f"{upload_id}_processed.mp4"
+                processed_name = f"{upload_id}_processed.mov"
                 processed_path = PROCESSED_DIR / processed_name
                 apply_metadata(phone_path, processed_path, device, ip_address or None, preserve_dates, location)
                 if phone_path.exists() and phone_path != processed_path:
                     phone_path.unlink(missing_ok=True)
-                # Имя скачивания без _processed
-                if original_name.lower().endswith((".mov", ".avi", ".mkv", ".webm", ".m4v", ".3gp")):
-                    original_name = Path(original_name).stem + ".mp4"
+                download_name = make_iphone_filename("mov", "video")
             elif is_image(ext):
                 intermediate = PROCESSED_DIR / f"{upload_id}_phone.jpg"
                 phone_path = apply_phone_look_image(upload_path, intermediate)
@@ -498,14 +516,14 @@ def process():
                 apply_metadata(phone_path, processed_path, device, ip_address or None, preserve_dates, location)
                 if phone_path.exists() and phone_path != processed_path:
                     phone_path.unlink(missing_ok=True)
-                if not original_name.lower().endswith((".jpg", ".jpeg")):
-                    original_name = Path(original_name).stem + ".jpg"
+                download_name = make_iphone_filename("jpg", "image")
             else:
                 return jsonify({"error": "Режим «как с телефона» поддерживает только фото и видео"}), 400
         else:
             processed_name = f"{upload_id}_processed.{ext}"
             processed_path = PROCESSED_DIR / processed_name
             apply_metadata(upload_path, processed_path, device, ip_address or None, preserve_dates, location)
+            download_name = make_iphone_filename(ext, media_type)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -514,8 +532,8 @@ def process():
 
     return jsonify({
         "filename": processed_name,
-        "original_name": original_name,
-        "download_url": f"/api/download/{processed_name}?name={original_name}",
+        "original_name": download_name,
+        "download_url": f"/api/download/{processed_name}?name={download_name}",
         "size": file_size,
         "metadata": new_metadata,
         "phone_look": phone_look,
