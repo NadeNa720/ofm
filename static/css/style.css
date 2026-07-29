@@ -170,7 +170,8 @@ select.form-control option {
 
 .checkbox-group {
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-start;
 }
 
 .manual-location {
@@ -193,6 +194,13 @@ select.form-control option {
     gap: 10px;
     cursor: pointer;
     color: #d0d0e0;
+}
+
+.form-hint {
+    margin-top: 8px;
+    font-size: 0.85rem;
+    color: #6e6e8a;
+    line-height: 1.4;
 }
 
 .checkbox-label input[type="checkbox"] {

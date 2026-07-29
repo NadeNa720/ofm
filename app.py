@@ -68,8 +68,16 @@ def exiftool_path():
     return shutil.which("exiftool") or shutil.which("exiftool.exe")
 
 
+def ffmpeg_path():
+    return shutil.which("ffmpeg") or shutil.which("ffmpeg.exe")
+
+
 def exiftool_ok():
     return exiftool_path() is not None
+
+
+def ffmpeg_ok():
+    return ffmpeg_path() is not None
 
 
 def run_exiftool(args, timeout=120):
@@ -84,6 +92,82 @@ def run_exiftool(args, timeout=120):
         if "Overwriting" not in result.stdout:
             raise RuntimeError(f"ExifTool error: {result.stderr or result.stdout}")
     return result
+
+
+def apply_phone_look_image(src_path, dst_path):
+    """Лёгкий шум и JPEG-сжатие в стиле камеры телефона."""
+    import random
+
+    with Image.open(src_path) as img:
+        img = img.convert("RGB")
+        pixels = img.load()
+        width, height = img.size
+        # Лёгкий шум сенсора (~1–2% пикселей)
+        noise_count = max(1, (width * height) // 80)
+        for _ in range(noise_count):
+            x = random.randint(0, width - 1)
+            y = random.randint(0, height - 1)
+            r, g, b = pixels[x, y]
+            delta = random.randint(-8, 8)
+            pixels[x, y] = (
+                max(0, min(255, r + delta)),
+                max(0, min(255, g + delta)),
+                max(0, min(255, b + delta)),
+            )
+        # Сохраняем как JPEG с качеством типичным для iPhone
+        out = dst_path.with_suffix(".jpg") if dst_path.suffix.lower() not in {".jpg", ".jpeg"} else dst_path
+        img.save(out, "JPEG", quality=92, optimize=True, subsampling=0)
+        return out
+
+
+def apply_phone_look_video(src_path, dst_path):
+    """Перекодирование видео с шумом и цветопередачей, похожей на телефон."""
+    tool = ffmpeg_path()
+    if not tool:
+        raise RuntimeError("FFmpeg не найден. Установите FFmpeg и добавьте его в PATH.")
+
+    # Выход всегда в mp4 (типичный контейнер iPhone)
+    out_path = dst_path.with_suffix(".mp4")
+    temp_path = out_path.with_name(out_path.stem + "_tmp.mp4")
+
+    # Фильтры: шум сенсора + лёгкая коррекция цвета/резкости как у мобильной камеры
+    vf = (
+        "noise=alls=3:allf=t+u,"
+        "eq=contrast=1.03:brightness=0.008:saturation=1.06:gamma=1.02,"
+        "unsharp=5:5:0.4:5:5:0.0"
+    )
+
+    cmd = [
+        tool, "-y", "-i", str(src_path),
+        "-vf", vf,
+        "-c:v", "libx264",
+        "-preset", "medium",
+        "-crf", "20",
+        "-pix_fmt", "yuv420p",
+        "-profile:v", "high",
+        "-level", "4.1",
+        "-c:a", "aac",
+        "-b:a", "128k",
+        "-ar", "44100",
+        "-movflags", "+faststart",
+        "-map_metadata", "-1",
+        "-fflags", "+bitexact",
+        "-flags:v", "+bitexact",
+        "-flags:a", "+bitexact",
+        "-metadata", "encoder=Apple",
+        "-metadata:s:v:0", "handler_name=Core Media Video",
+        "-metadata:s:a:0", "handler_name=Core Media Audio",
+        str(temp_path),
+    ]
+
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    if result.returncode != 0:
+        raise RuntimeError(f"FFmpeg error: {result.stderr[-500:] if result.stderr else 'unknown'}")
+
+    if out_path.exists():
+        out_path.unlink()
+    temp_path.rename(out_path)
+    return out_path
 
 
 def read_file_metadata(filepath):
@@ -242,11 +326,19 @@ def apply_metadata(src_path, dst_path, device, ip_address=None, preserve_dates=T
             ]
     elif is_video(ext):
         tags += [
+            "-Encoder=",
+            "-CompressorName=H.264",
+            "-HandlerVendorID=Apple",
             f"-Make={device['make']}",
             f"-Model={device['model']}",
             f"-Software={device['software']}",
             f"-CreateDate={capture_date}",
             f"-ModifyDate={capture_date}",
+            f"-TrackCreateDate={capture_date}",
+            f"-TrackModifyDate={capture_date}",
+            f"-MediaCreateDate={capture_date}",
+            f"-MediaModifyDate={capture_date}",
+            "-XMP:All=",
         ]
         if ip_address:
             tags += [
@@ -341,6 +433,7 @@ def process():
     device_id = data.get("device_id")
     ip_address = data.get("ip_address", "").strip()
     preserve_dates = data.get("preserve_dates", True)
+    phone_look = data.get("phone_look", False)
     location_id = data.get("location_id")
     manual_location = data.get("location")
 
@@ -379,14 +472,40 @@ def process():
         return jsonify({"error": "Исходный файл не найден"}), 404
 
     upload_path = upload_files[0]
-    ext = upload_path.suffix
-    processed_name = f"{upload_id}_processed{ext}"
-    processed_path = PROCESSED_DIR / processed_name
-
-    original_name = secure_filename(data.get("original_name", f"processed{ext}"))
+    ext = upload_path.suffix.lower().lstrip(".")
+    original_name = secure_filename(data.get("original_name", f"processed.{ext}"))
 
     try:
-        apply_metadata(upload_path, processed_path, device, ip_address or None, preserve_dates, location)
+        if phone_look:
+            if is_video(ext):
+                if not ffmpeg_ok():
+                    return jsonify({"error": "FFmpeg не найден. Нужен для режима «как с телефона»."}), 500
+                intermediate = PROCESSED_DIR / f"{upload_id}_phone.mp4"
+                phone_path = apply_phone_look_video(upload_path, intermediate)
+                processed_name = f"{upload_id}_processed.mp4"
+                processed_path = PROCESSED_DIR / processed_name
+                apply_metadata(phone_path, processed_path, device, ip_address or None, preserve_dates, location)
+                if phone_path.exists() and phone_path != processed_path:
+                    phone_path.unlink(missing_ok=True)
+                # Имя скачивания без _processed
+                if original_name.lower().endswith((".mov", ".avi", ".mkv", ".webm", ".m4v", ".3gp")):
+                    original_name = Path(original_name).stem + ".mp4"
+            elif is_image(ext):
+                intermediate = PROCESSED_DIR / f"{upload_id}_phone.jpg"
+                phone_path = apply_phone_look_image(upload_path, intermediate)
+                processed_name = f"{upload_id}_processed.jpg"
+                processed_path = PROCESSED_DIR / processed_name
+                apply_metadata(phone_path, processed_path, device, ip_address or None, preserve_dates, location)
+                if phone_path.exists() and phone_path != processed_path:
+                    phone_path.unlink(missing_ok=True)
+                if not original_name.lower().endswith((".jpg", ".jpeg")):
+                    original_name = Path(original_name).stem + ".jpg"
+            else:
+                return jsonify({"error": "Режим «как с телефона» поддерживает только фото и видео"}), 400
+        else:
+            processed_name = f"{upload_id}_processed.{ext}"
+            processed_path = PROCESSED_DIR / processed_name
+            apply_metadata(upload_path, processed_path, device, ip_address or None, preserve_dates, location)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -399,6 +518,7 @@ def process():
         "download_url": f"/api/download/{processed_name}?name={original_name}",
         "size": file_size,
         "metadata": new_metadata,
+        "phone_look": phone_look,
     })
 
 

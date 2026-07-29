@@ -1,2 +1,2 @@
 [phases.setup]
-aptPkgs = ["libimage-exiftool-perl"]
+aptPkgs = ["libimage-exiftool-perl", "ffmpeg"]

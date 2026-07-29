@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const deviceSelect = document.getElementById("device-select");
     const ipInput = document.getElementById("ip-address");
     const preserveDatesCheckbox = document.getElementById("preserve-dates");
+    const phoneLookCheckbox = document.getElementById("phone-look");
     const locationSelect = document.getElementById("location-select");
     const manualLocationToggle = document.getElementById("manual-location-toggle");
     const manualLocationPanel = document.getElementById("manual-location");
@@ -253,6 +254,7 @@ document.addEventListener("DOMContentLoaded", () => {
             device_id: deviceId,
             ip_address: ipAddress,
             preserve_dates: preserveDatesCheckbox.checked,
+            phone_look: phoneLookCheckbox.checked,
             original_name: currentUpload.original_name,
         };
 
@@ -331,6 +333,7 @@ document.addEventListener("DOMContentLoaded", () => {
         deviceSelect.value = "";
         ipInput.value = "";
         preserveDatesCheckbox.checked = true;
+        phoneLookCheckbox.checked = false;
         locationSelect.value = "";
         manualLocationToggle.checked = false;
         manualLocationPanel.classList.add("hidden");
