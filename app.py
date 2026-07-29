@@ -493,7 +493,6 @@ def process():
 
     upload_path = upload_files[0]
     ext = upload_path.suffix.lower().lstrip(".")
-    media_type = "video" if is_video(ext) else "image"
 
     try:
         if phone_look:
@@ -507,7 +506,6 @@ def process():
                 apply_metadata(phone_path, processed_path, device, ip_address or None, preserve_dates, location)
                 if phone_path.exists() and phone_path != processed_path:
                     phone_path.unlink(missing_ok=True)
-                download_name = make_iphone_filename("mov", "video")
             elif is_image(ext):
                 intermediate = PROCESSED_DIR / f"{upload_id}_phone.jpg"
                 phone_path = apply_phone_look_image(upload_path, intermediate)
@@ -516,24 +514,34 @@ def process():
                 apply_metadata(phone_path, processed_path, device, ip_address or None, preserve_dates, location)
                 if phone_path.exists() and phone_path != processed_path:
                     phone_path.unlink(missing_ok=True)
-                download_name = make_iphone_filename("jpg", "image")
             else:
                 return jsonify({"error": "Режим «как с телефона» поддерживает только фото и видео"}), 400
         else:
             processed_name = f"{upload_id}_processed.{ext}"
             processed_path = PROCESSED_DIR / processed_name
             apply_metadata(upload_path, processed_path, device, ip_address or None, preserve_dates, location)
-            download_name = make_iphone_filename(ext, media_type)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+    # Переименовываем файл на диске в стиль iPhone (IMG_1234.JPG / IMG_1234.MOV)
+    final_name = make_iphone_filename(
+        processed_path.suffix.lstrip("."),
+        "video" if is_video(processed_path.suffix.lstrip(".")) else "image",
+    )
+    final_path = PROCESSED_DIR / final_name
+    if final_path.exists() and final_path != processed_path:
+        final_path.unlink()
+    processed_path.rename(final_path)
+    processed_path = final_path
+    processed_name = final_name
 
     new_metadata = read_file_metadata(processed_path)
     file_size = processed_path.stat().st_size
 
     return jsonify({
         "filename": processed_name,
-        "original_name": download_name,
-        "download_url": f"/api/download/{processed_name}?name={download_name}",
+        "original_name": processed_name,
+        "download_url": f"/api/download/{processed_name}",
         "size": file_size,
         "metadata": new_metadata,
         "phone_look": phone_look,
@@ -542,15 +550,15 @@ def process():
 
 @app.route("/api/download/<filename>")
 def download(filename):
-    file_path = PROCESSED_DIR / secure_filename(filename)
+    safe_name = secure_filename(filename)
+    file_path = PROCESSED_DIR / safe_name
     if not file_path.exists():
         return jsonify({"error": "Файл не найден"}), 404
 
-    download_name = secure_filename(request.args.get("name", filename))
     return send_file(
         file_path,
         as_attachment=True,
-        download_name=download_name,
+        download_name=safe_name,
     )
 
 

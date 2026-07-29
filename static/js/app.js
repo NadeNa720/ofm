@@ -309,11 +309,14 @@ document.addEventListener("DOMContentLoaded", () => {
         previewSection.classList.add("hidden");
         resultSection.classList.remove("hidden");
 
+        const fileName = data.original_name || data.filename;
         downloadBtn.href = data.download_url;
-        downloadBtn.download = data.original_name || data.filename;
+        downloadBtn.setAttribute("download", fileName);
+        downloadBtn.textContent = `Скачать ${fileName}`;
 
         const metadataHtml = `
             <h3>Новые метаданные файла</h3>
+            <p style="margin-bottom:12px;color:#a0a0b8">Имя файла: <strong style="color:#fff">${escapeHtml(fileName)}</strong></p>
             <pre>${escapeHtml(JSON.stringify(data.metadata, null, 2))}</pre>
         `;
         metadataCompare.innerHTML = metadataHtml;
